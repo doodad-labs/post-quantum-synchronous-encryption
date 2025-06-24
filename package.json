@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "pako": "^2.1.0",
+    "pqclean": "^0.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "@types/pqclean": "^0.3.2"
+  }
+}
