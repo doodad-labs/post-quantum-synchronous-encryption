@@ -8,7 +8,7 @@ Symmetric Encryption	    | AES-256-GCM	                | 256-bit (NIST-approved)
 Key Derivation	            | HKDF-SHA256	                | 256-bit (NIST SP 800-56C)	            | Proper key separation with context binding
 Random Number Generation	| crypto.randomBytes()	        | Cryptographically secure (CSPRNG)	    | Uses OS entropy source
 
-Resistance Against Attacks:
+## Resistance Against Attacks
 
 Attack Type	            | Protection Mechanism	                                            | Additional Notes
 ------------------------|-------------------------------------------------------------------|----------------------------------------
@@ -23,3 +23,48 @@ Memory scraping	        | Explicit secureZero for sensitive buffers	            
 Error oracles	        | Unified error paths (generic "decryption failed" messages)	    | Hides cryptographic faults
 Side-channel leaks	    | Minimum processing time (MIN_PROCESSING_TIME)	                    | Obscures operation timing
 Metadata leakage	    | Fixed block padding (1024-byte chunks)	                        | Hides true message size
+
+## Benchmarking
+
+```
+clk: ~2.84 GHz
+cpu: 13th Gen Intel(R) Core(TM) i5-13420H
+runtime: node 22.13.1 (x64-win32)
+
+benchmark                   avg (min … max) p75 / p99    (min … top 1%)
+------------------------------------------- -------------------------------
+GenKeys                       49.28 ms/iter  49.66 ms   █   █
+                      (36.15 ms … 71.10 ms)  67.81 ms ▅ █   █ ▅▅          ▅
+                    (  2.71 kb …  20.49 kb)   4.67 kb █▁█▁▁▁█▁██▁▁▁▁▁▁▁▁▁▁█
+
+                             ┌                                            ┐
+                             ╷     ┌────────────┬                         ╷
+                     GenKeys ├─────┤            │─────────────────────────┤
+                             ╵     └────────────┴                         ╵
+                             └                                            ┘
+                             36.15 ms           51.98 ms           67.81 ms
+
+------------------------------------------- -------------------------------
+Encrypt                       11.84 ms/iter  12.58 ms █▄
+                       (9.25 ms … 25.14 ms)  25.02 ms ███▂
+                    ( 23.09 kb …  33.07 kb)  24.30 kb ████▅▆█▁▃▁▁▁▁▃▁▁▁▃▁▁▃
+
+                             ┌                                            ┐
+                             ╷┌─────┬──┐                                  ╷
+                     Encrypt ├┤     │  ├──────────────────────────────────┤
+                             ╵└─────┴──┘                                  ╵
+                             └                                            ┘
+                             9.25 ms           17.13 ms            25.02 ms
+
+------------------------------------------- -------------------------------
+Decrypt                      699.98 µs/iter 999.10 µs ▄▄█
+                      (252.60 µs … 2.60 ms)   1.74 ms ███▂
+                    (216.00  b … 419.69 kb)  15.38 kb ████▆▄▅▅▇▇█▆▄▄▃▅▅▅▃▃▁
+
+                             ┌                                            ┐
+                             ╷  ┌─────────┬─────────┐                     ╷
+                     Decrypt ├──┤         │         ├─────────────────────┤
+                             ╵  └─────────┴─────────┘                     ╵
+                             └                                            ┘
+                             252.60 µs          998.35 µs           1.74 ms
+```

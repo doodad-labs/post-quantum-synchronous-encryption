@@ -39,9 +39,15 @@ const AES_KEY_LENGTH = 32;
 const VERSION = '1.0.0';
 const PROTOCOL = 'hsyncronous'
 const MIN_PROCESSING_TIME = 50;
+const TIMESTAMP_LENGTH = 25;
+const MAX_NONCE_LENGTH = 128; // Maximum length for nonce
 
-function toBuffer(arrayBuffer: ArrayBuffer): Buffer {
-    return Buffer.from(arrayBuffer);
+const DEFAULT_ENCRYPT_OPTIONS = {
+    fixedRunTime: true
+}
+
+const DEFAULT_DECRYPT_OPTIONS = {
+    fixedRunTime: true
 }
 
 function padData(data: string, blockSize = 1024): string {
@@ -59,19 +65,19 @@ function timingSafeHmac(key: Buffer, data: Buffer): Buffer {
 function hkdf(ikm: Buffer, salt: Buffer, info: Buffer, length: number): Buffer {
     // Extract phase
     const prk = timingSafeHmac(salt, ikm)
-    
+
     // Expand phase
     const iterations = Math.ceil(length / 32); // SHA-256 produces 32-byte outputs
     const buffers: Buffer[] = [];
     let prev = Buffer.alloc(0);
-    
+
     for (let i = 0; i < iterations; i++) {
         const hmac = crypto.createHmac('sha256', prk);
         hmac.update(Buffer.concat([prev, info, Buffer.from([i + 1])]));
         prev = hmac.digest();
         buffers.push(prev);
     }
-    
+
     return Buffer.concat(buffers).subarray(0, length);
 }
 
@@ -104,22 +110,39 @@ function secureZero(buffer: Buffer): void {
 
 interface encryptFunc {
     (
-        message: string, 
+        message: string,
         keypair: {
-            kemKeyPair: PQClean.kem.GenerateKeyPairResult, 
+            kemKeyPair: PQClean.kem.GenerateKeyPairResult,
             sigKeyPair: PQClean.sign.GenerateKeyPairResult
+        },
+        nonce?: string,
+        options?: {
+            fixedRunTime?: boolean // If true, will always take at least MIN_PROCESSING_TIME
         }
     ): Promise<string>;
 }
 
-export const encrypt: encryptFunc = async (message, keypair) => {
-
+export const encrypt: encryptFunc = async (message, keypair, nonce, options) => {
+    // Start performance measurement
     const start = performance.now();
+
+    // Validate inputs
     if (!keypair || !keypair.kemKeyPair || !keypair.sigKeyPair) throw new Error('Call generateKeys() first');
+    if (typeof message !== 'string') throw new Error('Message must be a string');
+
+    // Validate nonce
+    if (!nonce) nonce = crypto.randomBytes(MAX_NONCE_LENGTH / 2).toString('hex');
+    if (typeof nonce !== 'string') throw new Error('Nonce must be a string');
+    if (nonce.length > MAX_NONCE_LENGTH) throw new Error(`Nonce must be less than ${MAX_NONCE_LENGTH} characters`);
+
+    options = {
+        ...DEFAULT_ENCRYPT_OPTIONS,
+        ...options
+    }
 
     const { key: sharedSecret, encryptedKey: encapsulatedKey } = await keypair.kemKeyPair.publicKey.generateKey();
-    const sharedSecretBuf = toBuffer(sharedSecret);
-    const encapsulatedKeyBuf = toBuffer(encapsulatedKey);
+    const sharedSecretBuf = Buffer.from(sharedSecret);
+    const encapsulatedKeyBuf = Buffer.from(encapsulatedKey);
 
     // HKDF parameters
     const salt = crypto.randomBytes(64);
@@ -134,18 +157,21 @@ export const encrypt: encryptFunc = async (message, keypair) => {
 
     secureZero(sharedSecretBuf);
 
+    const timestamp = Date.now();
+    const paddedTimestamp = timestamp.toString().padStart(TIMESTAMP_LENGTH, '0');
+    const noncePadded = nonce.padStart(MAX_NONCE_LENGTH, ' ');
+    const messagePayload = `${message}${paddedTimestamp}${noncePadded}`;
+
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv(AES_ALGORITHM, aesKey, iv);
     const encryptedMessage = Buffer.concat([
-        cipher.update(message, 'utf8'),
+        cipher.update(messagePayload, 'utf8'),
         cipher.final()
     ]);
+    const authTag = cipher.getAuthTag();
 
     secureZero(aesKey);
 
-    const authTag = cipher.getAuthTag();
-
-    // 3. Sign the components (convert all to Buffer first)
     const dataToSign = Buffer.concat([
         salt,
         encapsulatedKeyBuf,
@@ -155,14 +181,9 @@ export const encrypt: encryptFunc = async (message, keypair) => {
     ]);
 
     const signature = await keypair.sigKeyPair.privateKey.sign(dataToSign);
-
-    // Dynamic Sizes
     const encryptedMessageSize = encryptedMessage.byteLength;
-    const signatureSize = toBuffer(signature).byteLength;
-
-    // Create a payload with all components
-    const mapArray = [encryptedMessageSize, signatureSize]
-    const map = Buffer.from(`${mapArray.join(',')}`, 'utf8');
+    const signatureSize = Buffer.from(signature).byteLength;
+    const map = Buffer.from(`${encryptedMessageSize},${signatureSize}`, 'utf8');
 
     const payload = Buffer.concat([
         salt,
@@ -170,26 +191,41 @@ export const encrypt: encryptFunc = async (message, keypair) => {
         iv,
         authTag,
         encryptedMessage,
-        toBuffer(signature)
+        Buffer.from(signature)
     ])
 
     const concatenatedPayload = `${map.toString('hex')}.${payload.toString('hex')}`;
     const paddedPayload = padData(concatenatedPayload, 1024);
+
+    if (!options.fixedRunTime) return paddedPayload;
     return await new Promise(r => setTimeout(r, MIN_PROCESSING_TIME - (performance.now() - start))).then(() => paddedPayload);
 }
 
 interface decryptFunc {
     (
-        payload: string, 
+        payload: string,
         keypair: {
-            kemKeyPair: PQClean.kem.GenerateKeyPairResult, 
+            kemKeyPair: PQClean.kem.GenerateKeyPairResult,
             sigKeyPair: PQClean.sign.GenerateKeyPairResult
+        },
+        options?: {
+            fixedRunTime?: boolean // If true, will always take at least MIN_PROCESSING_TIME
         }
-    ): Promise<string>;
+    ): Promise<{
+        message: string,
+        createdAt: Date,
+        decryptedAt: Date,
+        nonce: string
+    }>;
 }
 
-export const decrypt: decryptFunc = async (payload, keypair) => {
-    
+export const decrypt: decryptFunc = async (payload, keypair, options) => {
+
+    options = {
+        ...DEFAULT_DECRYPT_OPTIONS,
+        ...options
+    }
+
     const start = performance.now();
     const [mapHex, payloadHex] = payload.split('.');
 
@@ -228,7 +264,7 @@ export const decrypt: decryptFunc = async (payload, keypair) => {
 
     const info = Buffer.from(`${keypair.kemKeyPair.publicKey.algorithm.name}-${keypair.sigKeyPair.publicKey.algorithm.name}-${AES_ALGORITHM}-${PROTOCOL}-${VERSION}`, 'utf8');
 
-    const sharedSecret = toBuffer(await keypair.kemKeyPair.privateKey.decryptKey(
+    const sharedSecret = Buffer.from(await keypair.kemKeyPair.privateKey.decryptKey(
         encapsulatedKey
     ));
 
@@ -247,10 +283,24 @@ export const decrypt: decryptFunc = async (payload, keypair) => {
 
     decipher.setAuthTag(authTag);
 
-    const concat = Buffer.concat([
+    const messagePayload = Buffer.concat([
         decipher.update(encryptedMessage),
         decipher.final()
     ]).toString('utf8')
 
-    return await new Promise(r => setTimeout(r, MIN_PROCESSING_TIME - (performance.now() - start))).then(() => concat);
+    const noncePadded = messagePayload.slice(-MAX_NONCE_LENGTH);
+    const paddedTimestamp = messagePayload.slice(-(TIMESTAMP_LENGTH + MAX_NONCE_LENGTH), -MAX_NONCE_LENGTH);
+    const message = messagePayload.slice(0, -(TIMESTAMP_LENGTH + MAX_NONCE_LENGTH));
+    const timestamp = new Date(parseInt(paddedTimestamp, 10));
+    const nonce = noncePadded.trimEnd(); // Remove trailing spaces from nonce
+
+    const returnPayload = {
+        message: message,
+        createdAt: new Date(timestamp),
+        decryptedAt: new Date(),
+        nonce: nonce
+    }
+
+    if (!options.fixedRunTime) return returnPayload;
+    return await new Promise(r => setTimeout(r, MIN_PROCESSING_TIME - (performance.now() - start))).then(() => returnPayload);
 }
