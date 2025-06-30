@@ -17,10 +17,10 @@ export interface encryptFunc {
             kemKeyPair: kem.GenerateKeyPairResult,
             sigKeyPair: sign.GenerateKeyPairResult
         },
-        nonce?: string,
         options?: {
             fixedRunTime?: boolean // If true, will always take at least MIN_PROCESSING_TIME
-        }
+        },
+        nonce?: string
     ): Promise<string>;
 }
 

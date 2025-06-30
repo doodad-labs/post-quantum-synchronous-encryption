@@ -8,9 +8,9 @@ async function example() {
     const original = randomBytes(1000).toString('hex'); // Random 32-byte string
 
     const perf_encrypt = performance.now();
-    const encrypted = await encrypt(original, keypair, nonce, {
+    const encrypted = await encrypt(original, keypair, {
         fixedRunTime: true,
-    });
+    }, nonce);
     const perf_encrypt_end = performance.now();
 
     const perf_decrypt = performance.now();
@@ -45,14 +45,14 @@ async function example() {
         fixedRunTime: false,
         memoryNonceProtection: false,
     }
-    let benchEncrypted = await encrypt(benchOriginal, benchKeypair, benchNonce, benchOptionsEncrypt);
+    let benchEncrypted = await encrypt(benchOriginal, benchKeypair, benchOptionsEncrypt, benchNonce);
 
     bench('GenKeys', () => 
         generateKeys()
     )
 
     bench('Encrypt', () => 
-        encrypt(benchOriginal, benchKeypair, benchNonce, benchOptionsEncrypt)
+        encrypt(benchOriginal, benchKeypair, benchOptionsEncrypt, benchNonce)
     );
 
     bench('Decrypt', () => 

@@ -107,13 +107,13 @@ export const generateKeys: generateKeysFunc = async (
  * 
  * @param {string} message - Plaintext message to encrypt
  * @param {Object} keypair - Contains KEM and signature key pairs (from generateKeys())
- * @param {string} [nonce] - Optional nonce for replay protection (auto-generated if omitted)
  * @param {Object} [options] - Encryption options (merged with defaults)
+ * @param {string} [nonce] - Optional nonce for replay protection (auto-generated if omitted)
  * @returns {Promise<string>} Encrypted payload (hex string with metadata)
  * 
  * @throws {Error} If inputs are invalid or cryptographic operations fail
  */
-export const encrypt: encryptFunc = async (message, keypair, nonce, options) => {
+export const encrypt: encryptFunc = async (message, keypair, options, nonce) => {
     // Start performance measurement (for constant-time enforcement)
     const start = performance.now();
 
