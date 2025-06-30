@@ -1,4 +1,4 @@
-import { encrypt, decrypt, generateKeys } from ".";
+import { encrypt, decrypt, generateKeys } from "./src";
 import { randomBytes } from "crypto";
 import { run, bench } from 'mitata';
 
