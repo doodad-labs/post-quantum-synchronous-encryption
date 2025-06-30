@@ -1,3 +1,8 @@
+
+# Post-quantum synchronous encryption protocol
+
+Hybrid synchronous encryption protocol using NIST approved post-quantum algorithms. 
+
 ```ts
 
 import { encrypt, decrypt, generateKeys } from "./src";
