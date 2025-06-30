@@ -34,9 +34,6 @@ import { randomBytes, createCipheriv, timingSafeEqual, createDecipheriv } from '
 import { generateKeysFunc, encryptFunc, decryptFunc } from './types';
 import { hkdf, secureZero, padData } from './utils';
 
-import { promises as fs } from 'fs';
-import path from 'path';
-
 export const supportedKemAlgorithms = kem.supportedAlgorithms
 export const supportedSigAlgorithms = sign.supportedAlgorithms
 
