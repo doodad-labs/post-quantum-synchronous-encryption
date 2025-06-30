@@ -1,3 +1,25 @@
+```ts
+
+import { encrypt, decrypt, generateKeys } from "./src";
+
+const key = generateKeys();
+const message = "The quick brown fox jumps over the lazy dog";
+
+const encrypted = await encrypt(message, key);
+const decrypted = await decrypt(encrypted, key);
+
+console.log(decrypted)
+
+// {
+//   message: "The quick brown fox jumps over the lazy dog",
+//   createdAt: 2025-06-30T15:14:33.663Z,
+//   decryptedAt: 2025-06-30T15:14:33.719Z,
+//   nonce: "3e4bc82b144728126bb0145d678f7a3153..."
+// }
+
+```
+
+
 ## Official Rating: NIST Level 4 (Highest commercial/government grade with post-quantum resistance)
 
 Component	                | Algorithm/Strength	        | Security Level	                    | Notes

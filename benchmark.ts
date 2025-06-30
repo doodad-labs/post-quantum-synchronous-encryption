@@ -17,6 +17,7 @@ async function example() {
     const decrypted = await decrypt(encrypted, keypair);
     const perf_decrypt_end = performance.now();
 
+    console.log(decrypted)
     
     console.log("\nCorrect Message:\t", original === decrypted.message ? "Yes" : "No");
     console.log("Correct Nonce:\t\t", decrypted.nonce === nonce ? "Yes" : "No");
