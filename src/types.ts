@@ -42,3 +42,21 @@ export interface decryptFunc {
         nonce: string
     }>;
 }
+
+export interface exportKeysFunc {
+    (
+        keypair: {
+            kemKeyPair: kem.GenerateKeyPairResult,
+            sigKeyPair: sign.GenerateKeyPairResult
+        },
+    ): Promise<string>;
+}
+
+export interface importKeysFunc {
+    (
+        keys: string,
+    ): Promise<{
+        kemKeyPair: kem.GenerateKeyPairResult,
+        sigKeyPair: sign.GenerateKeyPairResult
+    }>;
+}

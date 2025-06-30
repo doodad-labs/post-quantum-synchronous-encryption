@@ -31,7 +31,7 @@ Metadata leakage	    | Fixed block padding (1024-byte chunks)	                  
 import { kem, sign } from 'pqclean';
 import { randomBytes, createCipheriv, timingSafeEqual, createDecipheriv } from 'crypto';
 
-import { generateKeysFunc, encryptFunc, decryptFunc } from './types';
+import { generateKeysFunc, encryptFunc, decryptFunc, exportKeysFunc, importKeysFunc } from './types';
 import { hkdf, secureZero, padData } from './utils';
 
 export const supportedKemAlgorithms = kem.supportedAlgorithms
@@ -41,7 +41,7 @@ export const supportedSigAlgorithms = sign.supportedAlgorithms
 const SUPPORTED_KEM_ALGORITHMS = supportedKemAlgorithms.map(alg => alg.name);
 const SUPPORTED_SIG_ALGORITHMS = supportedSigAlgorithms.map(alg => alg.name);
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const PROTOCOL = 'hsyncronous'
 
 const AES_ALGORITHM = 'aes-256-gcm';
@@ -93,6 +93,146 @@ export const generateKeys: generateKeysFunc = async (
     return {
         kemKeyPair: kemKeyPair,  // Public/private keys for key exchange
         sigKeyPair: sigKeyPair   // Public/private keys for signing
+    };
+};
+
+/**
+ * Serializes cryptographic key pairs into a secure string format for storage/transmission.
+ * Format: "PROTOCOL:VERSION:METADATA_HEX:PAYLOAD_HEX"
+ * 
+ * @param {Object} keypair - Contains KEM and signature key pairs (from generateKeys() or importKeys())
+ * @returns {string} Serialized keys in protocol-defined format
+ * 
+ * @throws {Error} If key export fails (e.g., invalid key material)
+ */
+export const exportKeys: exportKeysFunc = async (keypair) => {
+    // --- Algorithm Identification ---
+    // Extract algorithm names from key objects
+    const kemAlgorithm = keypair.kemKeyPair.publicKey.algorithm.name;
+    const sigAlgorithm = keypair.sigKeyPair.publicKey.algorithm.name;
+
+    // --- Key Material Export ---
+    // Convert all key components to raw binary format
+    const kemPublicKey = keypair.kemKeyPair.publicKey.export();
+    const kemPrivateKey = keypair.kemKeyPair.privateKey.export();
+    const sigPublicKey = keypair.sigKeyPair.publicKey.export();
+    const sigPrivateKey = keypair.sigKeyPair.privateKey.export();
+
+    // --- Metadata Construction ---
+    // Create map of component lengths for precise parsing during import
+    const map = [
+        kemAlgorithm.length,         // Length of KEM algorithm name string
+        sigAlgorithm.length,        // Length of signature algorithm name string
+        kemPublicKey.byteLength,    // Size of KEM public key
+        kemPrivateKey.byteLength,   // Size of KEM private key
+        sigPublicKey.byteLength,    // Size of signature public key
+    ];
+
+    // Encode metadata as CSV hex buffer
+    const mapBuffer = Buffer.from(map.join(','), 'utf8');
+
+    // --- Payload Assembly ---
+    // Concatenate all components in defined order:
+    // 1. Algorithm names (UTF-8)
+    // 2. Key material (raw binary)
+    const payload = Buffer.concat([
+        Buffer.from(kemAlgorithm, 'utf8'),
+        Buffer.from(sigAlgorithm, 'utf8'),
+        Buffer.from(kemPublicKey),
+        Buffer.from(kemPrivateKey),
+        Buffer.from(sigPublicKey),
+        Buffer.from(sigPrivateKey)
+    ]);
+
+    // --- Final Serialization ---
+    // Combine components with protocol identifiers
+    return `${PROTOCOL}:${VERSION}:${mapBuffer.toString('hex')}:${payload.toString('hex')}`;
+};
+
+/**
+ * Imports cryptographic keys from a serialized string format, verifying protocol compatibility
+ * and algorithm support before reconstructing key pairs.
+ * 
+ * @param {string} keys - Serialized keys in format "PROTOCOL:VERSION:METADATA_HEX:PAYLOAD_HEX"
+ * @returns {Promise<{kemKeyPair: KeyPair, sigKeyPair: KeyPair}>} Reconstructed key pairs
+ * @throws {Error} If:
+ * - Protocol/version mismatch
+ * - Unsupported algorithms detected
+ * - Malformed key data
+ */
+export const importKeys: importKeysFunc = async (keys) => {
+    // --- Protocol/Version Validation ---
+    // Split the input string into components
+    const [protocol, version, mapHex, payloadHex] = keys.split(':');
+    
+    // Verify protocol and version compatibility
+    if (protocol !== PROTOCOL || version !== VERSION) {
+        throw new Error(`Unsupported protocol or version: ${protocol} ${version}`);
+    }
+
+    // --- Metadata Parsing ---
+    // Decode hex metadata into array of buffer lengths
+    const map = Buffer.from(mapHex, 'hex').toString('utf8').split(',').map(Number);
+    const [
+        kemAlgorithmLength, 
+        sigAlgorithmLength, 
+        kemPublicKeySize, 
+        kemPrivateKeySize, 
+        sigPublicKeySize
+    ] = map;
+
+    // --- Payload Decoding ---
+    const payload = Buffer.from(payloadHex, 'hex');
+
+    // --- Algorithm Validation ---
+    // Extract algorithm identifiers from payload
+    const kemAlgorithm = payload.subarray(0, kemAlgorithmLength).toString('utf8');
+    const sigAlgorithm = payload.subarray(
+        kemAlgorithmLength, 
+        kemAlgorithmLength + sigAlgorithmLength
+    ).toString('utf8');
+    
+    // Verify supported algorithms
+    if (!SUPPORTED_KEM_ALGORITHMS.includes(kemAlgorithm)) {
+        throw new Error(`Unsupported KEM algorithm: ${kemAlgorithm}`);
+    }
+    if (!SUPPORTED_SIG_ALGORITHMS.includes(sigAlgorithm)) {
+        throw new Error(`Unsupported signature algorithm: ${sigAlgorithm}`);
+    }
+
+    // --- Key Material Extraction ---
+    // Slice raw key material from payload using parsed lengths
+    const kemPublicKeyRaw = payload.subarray(
+        kemAlgorithmLength + sigAlgorithmLength,
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize
+    );
+    const kemPrivateKeyRaw = payload.subarray(
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize,
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize + kemPrivateKeySize
+    );
+    const sigPublicKeyRaw = payload.subarray(
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize + kemPrivateKeySize,
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize + kemPrivateKeySize + sigPublicKeySize
+    );
+    const sigPrivateKeyRaw = payload.subarray(
+        kemAlgorithmLength + sigAlgorithmLength + kemPublicKeySize + kemPrivateKeySize + sigPublicKeySize
+    );
+
+    // --- Key Pair Reconstruction ---
+    const kemPublicKey = new kem.PublicKey(kemAlgorithm, kemPublicKeyRaw);
+    const kemPrivateKey = new kem.PrivateKey(kemAlgorithm, kemPrivateKeyRaw);
+    const sigPublicKey = new sign.PublicKey(sigAlgorithm, sigPublicKeyRaw);
+    const sigPrivateKey = new sign.PrivateKey(sigAlgorithm, sigPrivateKeyRaw);
+
+    return {
+        kemKeyPair: {
+            publicKey: kemPublicKey,
+            privateKey: kemPrivateKey,
+        },
+        sigKeyPair: {
+            publicKey: sigPublicKey,
+            privateKey: sigPrivateKey,
+        }
     };
 };
 
