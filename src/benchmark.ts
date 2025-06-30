@@ -1,6 +1,6 @@
 import { encrypt, decrypt, generateKeys } from ".";
 import { randomBytes } from "crypto";
-import { run, bench, boxplot } from 'mitata';
+import { run, bench } from 'mitata';
 
 async function example() {
     const keypair = await generateKeys();
@@ -38,14 +38,27 @@ async function example() {
     let benchKeypair = await generateKeys();
     let benchNonce = randomBytes(64).toString('hex'); // Random 16-byte nonce
     let benchOriginal = randomBytes(1000).toString('hex'); // Random 32-byte string
-    let benchOptions = {
+    let benchOptionsEncrypt = {
         fixedRunTime: false,
     }
-    let benchEncrypted = await encrypt(benchOriginal, benchKeypair, benchNonce, benchOptions);
+    let benchOptionsDecrypt = {
+        fixedRunTime: false,
+        memoryNonceProtection: false,
+    }
+    let benchEncrypted = await encrypt(benchOriginal, benchKeypair, benchNonce, benchOptionsEncrypt);
 
-    boxplot(()=>bench('GenKeys', () => generateKeys()))
-    boxplot(()=>bench('Encrypt', () => encrypt(benchOriginal, benchKeypair, benchNonce, benchOptions)))
-    boxplot(()=>bench('Decrypt', () => decrypt(benchEncrypted, benchKeypair, benchOptions)))
+    bench('GenKeys', () => 
+        generateKeys()
+    )
+
+    bench('Encrypt', () => 
+        encrypt(benchOriginal, benchKeypair, benchNonce, benchOptionsEncrypt)
+    );
+
+    bench('Decrypt', () => 
+        decrypt(benchEncrypted, benchKeypair, benchOptionsDecrypt)
+    )
+
     await run();
 }
 

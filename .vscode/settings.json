@@ -3,6 +3,7 @@
         "CSPRNG",
         "hsyncronous",
         "keypair",
+        "mitata",
         "pqclean",
         "Zeroization"
     ]
