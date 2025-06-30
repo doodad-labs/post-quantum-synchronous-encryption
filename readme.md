@@ -1,4 +1,4 @@
-Official Rating: NIST Level 4 (Highest commercial/government grade with post-quantum resistance)
+## Official Rating: NIST Level 4 (Highest commercial/government grade with post-quantum resistance)
 
 Component	                | Algorithm/Strength	        | Security Level	                    | Notes
 ----------------------------|-------------------------------|---------------------------------------|-----------------------------------------------------------------
