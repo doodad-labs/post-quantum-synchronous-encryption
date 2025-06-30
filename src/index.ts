@@ -137,6 +137,7 @@ export const encrypt: encryptFunc = async (message, keypair, options, nonce) => 
         ...options
     };
 
+    // --- Algorithm Support Check ---
     if (!SUPPORTED_KEM_ALGORITHMS.includes(keypair.kemKeyPair.publicKey.algorithm.name)) {
         throw new Error('Unsupported KEM algorithm');
     }
