@@ -1,10 +1,33 @@
 {
+  "name": "hsynchronous",
+  "description": "Hybrid synchronous encryption protocol using NIST approved post-quantum algorithms.",
+  "keywords": [
+    "aes-encryption",
+    "post-quantum-cryptography",
+    "hybrid-encryption",
+    "synchronous-encryption",
+    "post-quantum-synchronous-encryption"
+  ],
+  "version": "1.0.0",
   "dependencies": {
     "pqclean": "^0.8.1"
   },
   "devDependencies": {
-    "@types/node": "24.0.7",
+    "@types/node": "24.0.8",
     "@types/pqclean": "^0.3.2",
-    "mitata": "^1.0.34"
-  }
+    "mitata": "^1.0.34",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.3"
+  },
+  "scripts": {
+    "build": "tsup src --minify --dts --platform=node --format esm,cjs,iife --legacy-output --treeshake",
+    "test": "tsx test.ts",
+    "benchmark": "tsx benchmark.ts"
+  },
+  "files": [
+    "dist",
+    "readme.md",
+    "LICENSE",
+    "package.json"
+  ]
 }

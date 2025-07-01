@@ -28,24 +28,20 @@ function timingSafeHmac(key: Buffer, data: Buffer): Buffer {
  */
 export function hkdf(ikm: Buffer, salt: Buffer, info: Buffer, length: number): Buffer {
     // --- Extract Phase ---
-    // Derives a pseudorandom key (PRK) from IKM and salt
-    const prk = timingSafeHmac(salt, ikm);
+    const prk: Buffer = timingSafeHmac(salt, ikm);
 
     // --- Expand Phase ---
-    // Calculates how many SHA-256 iterations are needed
-    const iterations = Math.ceil(length / 32); // SHA-256 outputs 32-byte chunks
+    const iterations = Math.ceil(length / 32);
     const buffers: Buffer[] = [];
-    let prev = Buffer.alloc(0); // Tracks the previous iteration's output
+    let prev: Buffer = Buffer.alloc(0);
 
     for (let i = 0; i < iterations; i++) {
         const hmac = createHmac('sha256', prk);
-        // Concatenates prev, info, and iteration counter
         hmac.update(Buffer.concat([prev, info, Buffer.from([i + 1])]));
-        prev = hmac.digest();
+        prev = hmac.digest() as Buffer;  // Explicit cast here
         buffers.push(prev);
     }
 
-    // Truncates to the exact requested length
     return Buffer.concat(buffers).subarray(0, length);
 }
 
