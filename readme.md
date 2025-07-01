@@ -72,3 +72,70 @@ Decrypt                      622.42 µs/iter 878.20 µs
                       (259.30 µs … 2.62 ms)   1.87 ms
                     (472.00  b … 493.76 kb)  16.20 kb
 ```
+## API
+
+### `await generateKeys(KEM_ALGORITHM*, SIG_ALGORITHM*)`
+
+Asynchronously generates a pair of cryptographic keys for Key Encapsulation Mechanism (KEM)
+and digital signatures using post-quantum algorithms (default: ML-KEM-1024 and Falcon-1024).
+
+- param `string` [KEM_ALGORITHM='ml-kem-1024'] - KEM algorithm identifier (e.g., 'ml-kem-1024', 'kyber-768').
+- param `string` [SIG_ALGORITHM='falcon-1024'] - Digital signature algorithm identifier (e.g., 'falcon-1024', 'dilithium-3').
+
+- returns `Promise<{ kemKeyPair: CryptoKeyPair; sigKeyPair: CryptoKeyPair }>` Object containing KEM and signature key pairs.
+
+- throws `Error` If key generation fails (e.g., unsupported algorithm or cryptographic backend error).
+
+### `await encrypt(message, keypair, options, nonce)`
+
+Encrypts a message using a hybrid post-quantum encryption scheme combining: Key Encapsulation Mechanism (KEM) for key exchange, AES-GCM for symmetric encryption, Digital signatures for authentication
+
+- param `string` message - Plaintext message to encrypt
+- param `Object` keypair - Contains KEM and signature key pairs (from generateKeys())
+- param `Object` [options] - Encryption options (merged with defaults)
+- param `string` [nonce] - Optional nonce for replay protection (auto-generated if omitted)
+
+- returns `Promise<string>` Encrypted payload (hex string with metadata)
+
+- throws `Error` If inputs are invalid or cryptographic operations fail
+
+### `await decrypt(payload, keypair, options)`
+
+Decrypts a payload encrypted by the `encrypt` function using hybrid post-quantum cryptography.
+Performs signature verification, key decapsulation, and AES-GCM decryption.
+
+- param `string` payload - Encrypted payload (hex string with metadata)
+- param `Object` keypair - Contains KEM and signature key pairs (from generateKeys())
+- param `Object` [options] - Decryption options (merged with defaults)
+
+- returns `Promise<{message: string, createdAt: Date, decryptedAt: Date, nonce: string}>` Decrypted data with metadata
+
+- throws {Error} If:
+  - Signature verification fails
+  - Nonce reuse detected
+  - Decryption fails (invalid tag, corrupted data, etc.)
+
+### `await exportKeys(keypair)`
+
+Serializes cryptographic key pairs into a secure string format for storage/transmission.
+Format: "PROTOCOL:VERSION:METADATA_HEX:PAYLOAD_HEX"
+
+- param `keypair` - Contains KEM and signature key pairs (from generateKeys() or importKeys())
+
+- returns `string` Serialized keys in protocol-defined format
+
+- throws `Error` If key export fails (e.g., invalid key material)
+
+### `await importKeys(key)`
+
+Imports cryptographic keys from a serialized string format, verifying protocol compatibility
+and algorithm support before reconstructing key pairs.
+
+- param `string` key - Serialized keys in format "PROTOCOL:VERSION:METADATA_HEX:PAYLOAD_HEX"
+
+- returns `Promise<{kemKeyPair: KeyPair, sigKeyPair: KeyPair}>` Reconstructed key pairs
+
+- throws `Error` If:
+  - Protocol/version mismatch
+  - Unsupported algorithms detected
+  - Malformed key data
