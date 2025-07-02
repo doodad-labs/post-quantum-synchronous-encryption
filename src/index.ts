@@ -41,7 +41,7 @@ export const supportedSigAlgorithms = sign.supportedAlgorithms
 const SUPPORTED_KEM_ALGORITHMS = supportedKemAlgorithms.map(alg => alg.name);
 const SUPPORTED_SIG_ALGORITHMS = supportedSigAlgorithms.map(alg => alg.name);
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 const PROTOCOL = 'hsynchronous'
 
 const AES_ALGORITHM = 'aes-256-gcm';

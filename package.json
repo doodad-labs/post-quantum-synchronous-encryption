@@ -1,5 +1,6 @@
 {
   "name": "hsynchronous",
+  "main": "dist/index.js",
   "description": "Hybrid synchronous encryption protocol using NIST approved post-quantum algorithms.",
   "keywords": [
     "aes-encryption",
@@ -8,10 +9,11 @@
     "synchronous-encryption",
     "post-quantum-synchronous-encryption"
   ],
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "pqclean": "^0.8.1"
   },
+  "license": "GPL-3.0",
   "devDependencies": {
     "@types/node": "24.0.8",
     "@types/pqclean": "^0.3.2",
