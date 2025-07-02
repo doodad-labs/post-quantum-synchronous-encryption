@@ -3,9 +3,13 @@
 
 Hybrid synchronous encryption protocol using NIST approved post-quantum algorithms. 
 
+```
+npm i hsynchronous
+```
+
 ```ts
 
-import { encrypt, decrypt, generateKeys } from "./src";
+import { encrypt, decrypt, generateKeys } from "hsynchronous";
 
 const key = generateKeys();
 const message = "The quick brown fox jumps over the lazy dog";
