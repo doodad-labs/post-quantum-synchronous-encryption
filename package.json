@@ -15,7 +15,7 @@
   },
   "license": "GPL-3.0",
   "devDependencies": {
-    "@types/node": "24.0.8",
+    "@types/node": "24.0.13",
     "@types/pqclean": "^0.3.2",
     "mitata": "^1.0.34",
     "tsup": "^8.5.0",
